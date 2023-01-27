@@ -1,25 +1,21 @@
-import { Entity, PrimaryGeneratedColumn, Column } from 'typeorm'
+import { Entity, PrimaryGeneratedColumn, Column, OneToMany } from 'typeorm';
+import { UserEntity } from './user.entity';
+
 
 @Entity()
 export class SessionEntity {
   @PrimaryGeneratedColumn('uuid')
   id: string
 
-  // @Column() // sqlite doesn't support array type
-  // gamers: string[]
-
-  @Column()
-  firstGamerId: string
+  @Column({ nullable: true })
+  winner: string
 
   @Column({ nullable: true })
-  secondGamerId: string
+  whoseTurn: string
 
-  @Column({ nullable: true })
-  winner: number
+  @Column({ default: 0 })
+  gamersCount: number
 
-  @Column({ nullable: true })
-  whoseTurn: number
-
-  @Column({ default: true })
-  isActive: boolean
+  @OneToMany(() => UserEntity, user => user.session, { onDelete: 'NO ACTION' })
+  users: UserEntity[]
 }

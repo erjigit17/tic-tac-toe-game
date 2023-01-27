@@ -3,6 +3,7 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { SessionEntity } from './entities/session.entity';
+import { UserEntity } from './entities/user.entity';
 
 
 @Module({
@@ -11,10 +12,10 @@ import { SessionEntity } from './entities/session.entity';
       type: 'sqlite',
       database: ':memory:',
       dropSchema: true,
-      entities: [SessionEntity],
+      entities: [SessionEntity, UserEntity],
       synchronize: true,
     }),
-    TypeOrmModule.forFeature([SessionEntity]),
+    TypeOrmModule.forFeature([SessionEntity, UserEntity]),
   ],
   controllers: [AppController],
   providers: [AppService],
