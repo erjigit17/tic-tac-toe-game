@@ -1,46 +1,93 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { SessionEntity } from './entities/session.entity';
-import { LessThan, Repository } from 'typeorm';
+import { Repository } from 'typeorm';
 import { UserEntity } from './entities/user.entity';
+import { RoundEntity } from './entities/roundEntity';
+import { TicTacToeService } from './tic-tac-toe.service';
 
 @Injectable()
 export class AppService {
   constructor(
     @InjectRepository(SessionEntity) private readonly sessionRepository: Repository<SessionEntity>,
     @InjectRepository(UserEntity) private readonly userRepository: Repository<UserEntity>,
+    @InjectRepository(RoundEntity) private readonly roundRepository: Repository<RoundEntity>,
+    private readonly ticTacToeService: TicTacToeService,
   ) {}
 
   async createUser(id: string) {
-    // const user = new UserEntity();
-    // user.id = id;
-    // user.session = { id: sessionId };
     await this.userRepository.save({ id });
   }
 
   async addUsersToSession(gamerId: string) {
-    // find session with less than 2 gamers, if not found create new session
-    const session = await this.sessionRepository.findOne({ where: { gamersCount: LessThan(2) } });
+    const session = await this.sessionRepository.findOne({ where: { isWaitingSecondGamer: true } });
     if (session) {
       await this.userRepository.update({ id: gamerId }, { session });
-      await this.sessionRepository.update({ id: session.id }, { gamersCount: session.gamersCount + 1 });
+      await this.sessionRepository.update({ id: session.id }, { isWaitingSecondGamer: false });
 
-      if (session.gamersCount === 1) { // start game if session has 2 gamers
-        await this.startGameSession(session.id);
-      }
-
+      await this.startGameSession(session.id);
     } else {
       const session = new SessionEntity();
-      await this.sessionRepository.save(session);
-      await this.addUsersToSession(gamerId);
+      const newSession = await this.sessionRepository.save(session);
+      await this.userRepository.update({ id: gamerId }, { session: newSession });
     }
   }
 
   async startGameSession(sessionId: string) {
+    let sessionWinner = null;
     const session = await this.sessionRepository.findOne({ where: { id: sessionId }, relations: ['users'] });
 
-    session.whoseTurn = Math.random() > 0.5 ? session.users[0].id : session.users[1].id;
-    await this.sessionRepository.save(session);
+    if (!session) { throw new Error('Session not found')}
+    if (session.users.length !== 2) { throw new Error('Session should have 2 gamers')}
+
+    while (!sessionWinner) {
+      await this.createNewRound(sessionId);
+      sessionWinner = await this.checkSessionWinner(sessionId);
+    }
+    await this.sessionRepository.update({ id: sessionId }, { winner: sessionWinner });
+  }
+
+  // check if session has winner, three wins in a row or 10 wins
+  async checkSessionWinner(sessionId: string) {
+    // get all rounds for session and sort by createdAt
+    const rounds = await this.roundRepository.find({
+      where: {
+        session: { id: sessionId },
+      },
+      order: { createdAt: 'ASC' }
+    });
+    const sessionWinners = rounds
+      .filter(round => round.draw === false)
+      .map(round => round.winnerId);
+
+    // if one of the gamers has 3 wins in last 3 rounds, he is winner
+    const lastThreeWinners = sessionWinners.slice(-3);
+    if (lastThreeWinners[0] === lastThreeWinners[1] && lastThreeWinners[1] === lastThreeWinners[2]) {
+      return lastThreeWinners[0];
+    }
+
+    // if one of sessionWinners the gamers has 10 wins, he is winner
+    const [gamer1, gamer2] = [...new Set(sessionWinners)];
+    if (sessionWinners.filter(winner => winner === gamer1).length === 10) {
+      return gamer1;
+    } else if (sessionWinners.filter(winner => winner === gamer2).length === 10) {
+      return gamer2;
+    }
+  }
+
+
+  async createNewRound(sessionId: string) {
+    const session = await this.sessionRepository.findOne({ where: { id: sessionId }, relations: ['users'] });
+    if (!session) {throw new Error('Session not found')}
+    if (session.users.length !== 2) { throw new Error('Session should have 2 gamers')}
+
+    const round = new RoundEntity();
+    round.session = session;
+    round.whoWillStart = Math.random() >= 0.5 ? session.users[0].id : session.users[1].id;
+    await this.roundRepository.save(round);
+
+    const { draw, winnerId } = await this.ticTacToeService.createNewGame(round.id);
+    await this.roundRepository.update({ id: round.id }, { draw, winnerId });
   }
 
   async getHello() {
