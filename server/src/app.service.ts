@@ -15,11 +15,11 @@ export class AppService {
     private readonly ticTacToeService: TicTacToeService,
   ) {}
 
-  async createUser(id: string) {
+  async createUser(id: string): Promise<void> {
     await this.userRepository.save({ id });
   }
 
-  async addUsersToSession(gamerId: string) {
+  async addUsersToSession(gamerId: string): Promise<void> {
     const session = await this.sessionRepository.findOne({ where: { isWaitingSecondGamer: true } });
     if (session) {
       await this.userRepository.update({ id: gamerId }, { session });
@@ -33,7 +33,7 @@ export class AppService {
     }
   }
 
-  async startGameSession(sessionId: string) {
+  async startGameSession(sessionId: string): Promise<void> {
     let sessionWinner = null;
     const session = await this.sessionRepository.findOne({ where: { id: sessionId }, relations: ['users'] });
 
@@ -48,7 +48,7 @@ export class AppService {
   }
 
   // check if session has winner, three wins in a row or 10 wins
-  async checkSessionWinner(sessionId: string) {
+  async checkSessionWinner(sessionId: string): Promise<string> {
     // get all rounds for session and sort by createdAt
     const rounds = await this.roundRepository.find({
       where: {
@@ -76,7 +76,7 @@ export class AppService {
   }
 
 
-  async createNewRound(sessionId: string) {
+  async createNewRound(sessionId: string): Promise<void> {
     const session = await this.sessionRepository.findOne({ where: { id: sessionId }, relations: ['users'] });
     if (!session) {throw new Error('Session not found')}
     if (session.users.length !== 2) { throw new Error('Session should have 2 gamers')}
@@ -90,12 +90,7 @@ export class AppService {
     await this.roundRepository.update({ id: round.id }, { draw, winnerId });
   }
 
-  async getHello() {
-    await this.createUser('1');
-    await this.addUsersToSession('1');
-    await this.createUser('2');
-    await this.addUsersToSession('2');
-
+  async getGameSessions(): Promise<SessionEntity[]> {
     return await this.sessionRepository.find({ relations: ['users'] });
   }
 }

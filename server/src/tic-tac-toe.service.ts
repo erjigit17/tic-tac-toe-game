@@ -12,17 +12,8 @@ export class TicTacToeService {
     @InjectRepository(UserEntity) private readonly userRepository: Repository<UserEntity>,
     @InjectRepository(RoundEntity) private readonly roundRepository: Repository<RoundEntity>,
   ) {}
-  private board: string[][] = [
-    ['', '', ''],
-    ['', '', ''],
-    ['', '', '']
-  ];
-  private playerX: string = 'X';
-  private playerO: string = 'O';
-  private gamer = this.playerX;
 
   async createNewGame(roundId: string): Promise<{ winnerId: any; draw: boolean }> {
-    this.resetBoard();
     const round = await this.roundRepository.findOne({ where: { id: roundId }, relations: ['session', 'session.users'] });
     if (!round) { throw new Error('Round not found')}
     if (round.session.users.length !== 2) { throw new Error('Session should have 2 gamers')}
@@ -35,7 +26,7 @@ export class TicTacToeService {
     const gameSummary = await this.runGame();
     let winnerId;
     if (gameSummary?.winner) {
-      winnerId = gameSummary.winner === this.playerX ? gamer1Id : gamer2Id;
+      winnerId = gameSummary.winner === 'X' ? gamer1Id : gamer2Id;
     }
     const draw = gameSummary?.draw;
 
@@ -43,69 +34,90 @@ export class TicTacToeService {
   }
 
   async runGame(): Promise<{ winner?: string, draw: boolean }> {
+    let board: string[][] = [
+      ['', '', ''],
+      ['', '', ''],
+      ['', '', '']
+    ];
+    let gamer: 'X'|'O' = 'X'
     let gameIsOver = false;
     const gameSummary = {
       winner: undefined,
       draw: false,
     }
     while (!gameIsOver) {
-      let empty = this.emptyCells();
+      this.printBoard(board);
+      let empty = this.emptyCells(board);
       if (empty.length === 0) {
         gameIsOver = true;
         gameSummary.draw = true;
+        this.printBoard(board);
+        console.log('Draw!');
       } else {
         let cell = this.randomEmptyCell(empty);
         if (cell) {
           let { row, col } = this.numToRowCol(cell);
-          this.play(row, col);
-          if (this.checkWinner()) {
+          this.play(row, col, board, gamer);
+          if (this.checkWinner(board)) {
             gameIsOver = true;
-            gameSummary.winner = this.gamer;
+            gameSummary.winner = gamer;
+            this.printBoard(board);
+            console.log(`Winner is ${gamer}`);
           }
+          gamer = gamer === 'X' ? 'O' : 'X';
         }
       }
     }
-
     return gameSummary;
   }
 
-  public play(row: number, col: number): boolean {
-    if (this.board[row][col] === '') {
-      this.board[row][col] = this.gamer;
-      // change gamer
-      this.gamer = this.gamer === this.playerX ? this.playerO : this.playerX;
+  printBoard(board: string[][]): void {
+    const $ = (x: string) => x === '' ? ' ' : x;
+    for (let i = 0; i < 3; i++) {
+      console.log(`| ${$(board[i][0])} | ${$(board[i][1])} | ${$(board[i][2])} |`);
+    }
+  }
+
+  public play(row: number, col: number, board: string[][], gamer: 'X'|'O'): boolean {
+    if (board[row][col] === '') {
+      board[row][col] = gamer;
       return true;
     }
     return false;
   }
 
 
-  checkWinner(): boolean {
+  checkWinner(board: string[][]): boolean {
     // check rows
     for (let i = 0; i < 3; i++) {
-      if (this.board[i][0] === this.board[i][1] && this.board[i][1] === this.board[i][2] && this.board[i][0] !== '') {
+      if (board[i][0] === board[i][1] && board[i][1] === board[i][2] && board[i][0] !== '') {
+        console.log(`column ${i}0 ${i}1 ${i}2`);
         return true;
       }
     }
     // check columns
     for (let i = 0; i < 3; i++) {
-      if (this.board[0][i] === this.board[1][i] && this.board[1][i] === this.board[2][i] && this.board[0][i] !== '') {
+      if (board[0][i] === board[1][i] && board[1][i] === board[2][i] && board[0][i] !== '') {
+        console.log(`column 0${i} 1${i} 2${i}`);
         return true;
       }
     }
     // check diagonals
-    if (this.board[0][0] === this.board[1][1] && this.board[1][1] === this.board[2][2] && this.board[0][0] !== '') {
+    if (board[0][0] === board[1][1] && board[1][1] === board[2][2] && board[0][0] !== '') {
+      console.log('diagonal 00 11 22');
       return true;
     }
-    return this.board[0][2] === this.board[1][1] && this.board[1][1] === this.board[2][0] && this.board[0][2] !== '';
-
+    if (board[0][2] === board[1][1] && board[1][1] === board[2][0] && board[0][2] !== ''){
+      console.log('diagonal 02 11 20');
+      return true;
+    }
   }
 
-  emptyCells(): number[] {
+  emptyCells(board: string[][]): number[] {
     let empty = [];
     for (let i = 0; i < 3; i++) {
       for (let j = 0; j < 3; j++) {
-        if (this.board[i][j] === '') {
+        if (board[i][j] === '') {
           empty.push(i * 3 + j + 1);
         }
       }
@@ -118,15 +130,6 @@ export class TicTacToeService {
     let row = Math.floor(num / 3);
     let col = num % 3;
     return { row, col };
-  }
-
-  // reset board
-  resetBoard(): void {
-    for (let i = 0; i < 3; i++) {
-      for (let j = 0; j < 3; j++) {
-        this.board[i][j] = '';
-      }
-    }
   }
 
   randomEmptyCell(arr: number[]): number | undefined {
