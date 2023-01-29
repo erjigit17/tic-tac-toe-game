@@ -5,16 +5,31 @@ import { SessionEntity } from './session.entity';
 @Entity()
 export class RoundEntity {
   @PrimaryGeneratedColumn('uuid')
-  id: string
-
-  @Column({ nullable: true })
-  whoWillStart: string
+  id: string;
 
   @Column({ nullable: true })
   winnerId: string
 
   @Column({ default: false })
   draw: boolean
+
+  @Column()
+  firstGamerId: string
+
+  @Column()
+  secondGamerId: string
+
+  @Column()
+  board: string
+
+  @Column()
+  gamer: string
+
+  @Column()
+  expiration: Date
+
+  @Column({ default: false })
+  isFinished: boolean
 
   @CreateDateColumn()
   createdAt: Date;
