@@ -17,8 +17,9 @@ Open another terminal
 
 Enjoy the game)
 
-<details>
-<summary>Candidate interview task </summary>
+
+
+#### Candidate interview task </summary>
  
 Tic Tac Toe 
 Overview: 
@@ -38,5 +39,3 @@ Game rules:
 Language: 
  
 node.js TypeScript для сервера обязательно, для фронта - что угодно
-
-</details>
